@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.stats as stats
 import datetime
-from actuarial_stats.scipy_decorators import poisson, nbinom
+from actstats.scipy_decorators import poisson, nbinom
 
 class NHPPDistribution:
     """
@@ -130,24 +130,34 @@ class ActuarialDistribution:
                     lambda mu, size: np.random.poisson(lam=mu, size = size)),
 
         "negative_binomial": (stats.nbinom, 
-                              lambda r=1, p=0.5: (r, 0, p),   
-                              lambda params: (params[0], params[2])),
+                              lambda r=1, p=0.5: (r, p),   
+                              lambda params: (params[0], params[1]),
+                              lambda r, p: {'n': r, 'p': p},
+                              lambda n, p, size: np.random.negative_binomial(n=n, p=p, size=size)),
 
         "normal": (stats.norm, 
                    lambda mu=0, sigma=1: (mu, sigma),  
-                   lambda params: (params[0], params[1])),
+                   lambda params: (params[0], params[1]),
+                   lambda mu, sigma: {'mu': mu, 'sigma': sigma},
+                   lambda mu, sigma, size: np.random.normal(loc=mu, scale=sigma, size=size)),
 
         "logistic": (stats.logistic, 
                      lambda mu=0, sigma=1: (mu, sigma),  
-                     lambda params: (params[0], params[1])),
+                     lambda params: (params[0], params[1]),
+                     lambda mu, sigma: {'mu': mu, 'sigma': sigma},
+                     lambda mu, sigma, size: np.random.logistic(loc=mu, scale=sigma, size=size)),
 
         "exponential": (stats.expon, 
                         lambda theta=1: (0, theta),   
-                        lambda params: (params[1],)),
+                        lambda params: (params[1],),
+                        lambda theta: {'theta': theta},
+                        lambda theta, size: np.random.exponential(scale=theta, size=size)),
 
         "uniform": (stats.uniform, 
                     lambda a=0, b=1: (a, b - a),   
-                    lambda params: (params[0], params[0] + params[1])),
+                    lambda params: (params[0], params[0] + params[1]),
+                    lambda a, b: {'a': a, 'b': b},
+                    lambda a, b, size: np.random.uniform(low=a, high=b, size=size)),
 
         # Nonhomogeneous Poisson process simulation
         "nonhomogeneous_poisson": (NHPPDistribution,
@@ -174,8 +184,10 @@ class ActuarialDistribution:
 
     def fit(self, data, *args, **kwargs):
         """Fit distribution and return actuarial parameters."""
-        if self.name not in ["uniform", "normal", "logistic", "poisson"]:
-            kwargs["floc"] = 0  # Force loc=0 for consistency
+        if self.name not in ["uniform", "normal", "logistic", "poisson", "negative_binomial"]:
+            # Force loc=0 for consistency, poisson and negative binomial fit functions 
+            # are defined in scipy_decorators.py which does not require this
+            kwargs["floc"] = 0
         fitted_params = self.scipy_dist.fit(data, *args, **kwargs)
         return self.from_scipy(fitted_params)
     
@@ -254,3 +266,4 @@ if __name__ == "__main__":
 
     # Convert each simulated event time to a month and day.
     dates = [fraction_to_date_full(t) for t in simulated_events]
+

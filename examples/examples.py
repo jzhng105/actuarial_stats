@@ -1,4 +1,4 @@
-from actuarial_stats.core import actuarial
+from actstats import actuarial
 
 ######################################
 ##### All distribution testing########
@@ -50,9 +50,54 @@ actuarial.beta.fit(beta_dist_sample)
 
 # Test the Poisson distribution
 poisson_dist = actuarial.poisson
-poisson_dist = actuarial.poisson(5)
+poisson_dist = actuarial.poisson(5,)
 poisson_dist_sample = poisson_dist.rvs(size=10000)
 poisson_dist_sample = poisson_dist.np_rvs(size=10000)
 poisson_dist_sample.mean()
 poisson_dist_sample.std()
 actuarial.poisson.fit(poisson_dist_sample)
+
+# Test the negative_binomial distribution
+negative_binomial_dist = actuarial.negative_binomial
+negative_binomial_dist = actuarial.negative_binomial(5, 0.5)
+negative_binomial_dist_sample = negative_binomial_dist.rvs(size=10000)
+negative_binomial_dist_sample = negative_binomial_dist.np_rvs(size=10000)
+negative_binomial_dist_sample.mean()
+negative_binomial_dist_sample.std()
+actuarial.negative_binomial.fit(negative_binomial_dist_sample)
+
+# Test the normal distribution
+normal_dist = actuarial.normal
+normal_dist = actuarial.normal(0, 1)
+normal_dist_sample = normal_dist.rvs(size=10000)
+normal_dist_sample = normal_dist.np_rvs(size=10000)
+normal_dist_sample.mean()
+normal_dist_sample.std()
+actuarial.normal.fit(normal_dist_sample)
+
+# Test the logistic distribution
+logistic_dist = actuarial.logistic
+logistic_dist = actuarial.logistic(0, 1)
+logistic_dist_sample = logistic_dist.rvs(size=10000)
+logistic_dist_sample = logistic_dist.np_rvs(size=10000)
+logistic_dist_sample.mean()
+logistic_dist_sample.std()
+actuarial.logistic.fit(logistic_dist_sample)
+
+# Test the exponential distribution
+exponential_dist = actuarial.exponential
+exponential_dist = actuarial.exponential(2)
+exponential_dist_sample = exponential_dist.rvs(size=10000)
+exponential_dist_sample = exponential_dist.np_rvs(size=10000)
+exponential_dist_sample.mean()
+exponential_dist_sample.std()
+actuarial.exponential.fit(exponential_dist_sample)
+
+# Test the uniform distribution
+uniform_dist = actuarial.uniform
+uniform_dist = actuarial.uniform(0, 1)
+uniform_dist_sample = uniform_dist.rvs(size=10000)
+uniform_dist_sample = uniform_dist.np_rvs(size=10000)
+uniform_dist_sample.mean()
+uniform_dist_sample.std()
+actuarial.uniform.fit(uniform_dist_sample)
