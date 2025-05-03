@@ -9,6 +9,8 @@
 ```bash
 pip install actstats
 
+---
+
 ## 🔢 ActuarialDistribution class
 | Distribution             | Actuarial Parameters | SciPy Equivalent             |
 | ------------------------ | -------------------- | ---------------------------- |
