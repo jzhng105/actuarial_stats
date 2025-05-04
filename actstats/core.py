@@ -177,7 +177,7 @@ class ActuarialDistribution:
         self.name = name
         self.scipy_dist, self.to_scipy, self.from_scipy, self.to_numpy, self.np_sampler = self._distributions[name]
          # If no parameters are provided, initialize with defaults
-        self.np_params = self.to_numpy(*args) if args else self.to_scipy()
+        self.np_params = self.to_numpy(*args) if args else self.to_numpy()
         converted_params = self.to_scipy(*args) if args else self.to_scipy()
 
         self.dist = self.scipy_dist(*converted_params, **kwargs)  # Store SciPy instance
