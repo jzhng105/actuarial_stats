@@ -96,31 +96,31 @@ class ActuarialDistribution:
         "lognormal": (stats.lognorm, 
                       lambda mu=0, sigma=1: (sigma, 0, np.exp(mu)),   
                       lambda params: (np.log(params[2]), params[0]),
-                      lambda mu, sigma: {'mu': mu, 'sigma': sigma},
+                      lambda mu=0, sigma=1: {'mu': mu, 'sigma': sigma},
                       lambda mu, sigma, size: np.random.lognormal(mean=mu, sigma=sigma, size=size)),
 
         "gamma": (stats.gamma, 
                   lambda alpha=1, theta=1: (alpha, 0, theta),  
                   lambda params: (params[0], params[2]),
-                  lambda alpha, theta: {'alpha': alpha, 'theta': theta},
+                  lambda alpha=1, theta=1: {'alpha': alpha, 'theta': theta},
                   lambda alpha, theta, size: np.random.gamma(shape=alpha, scale=theta, size=size)),
 
         "weibull": (stats.weibull_min, 
                     lambda alpha=1, beta=1: (alpha, 0, beta),   
                     lambda params: (params[0], params[2]),
-                    lambda alpha, beta: {'alpha': alpha, 'beta': beta},
+                    lambda alpha=1, beta=1: {'alpha': alpha, 'beta': beta},
                     lambda alpha, beta, size: np.random.weibull(a=alpha, size=size)), # numpy weibull has only 1 parameter
 
         "pareto": (stats.pareto, 
                    lambda alpha=1, theta=1: (alpha, 0, theta),  
                    lambda params: (params[0], params[2]),
-                   lambda alpha, theta: {'alpha': alpha, 'theta': theta},
+                   lambda alpha=1, theta=1: {'alpha': alpha, 'theta': theta},
                    lambda alpha, theta, size: np.random.pareto(a=alpha, size=size)), # numpy pareto has only 1 parameter
 
         "beta": (stats.beta, 
                  lambda alpha=1, beta=1: (alpha, beta),   
                  lambda params: (params[0], params[1]),
-                 lambda alpha, beta: {'alpha': alpha, 'beta': beta},
+                 lambda alpha=1, beta=1: {'alpha': alpha, 'beta': beta},
                  lambda alpha, beta, size: np.random.beta(a=alpha, b=beta, size=size)),
 
         "poisson": (stats.poisson, 
@@ -132,38 +132,39 @@ class ActuarialDistribution:
         "negative_binomial": (stats.nbinom, 
                               lambda r=1, p=0.5: (r, p),   
                               lambda params: (params[0], params[1]),
-                              lambda r, p: {'n': r, 'p': p},
+                              lambda r=1, p=0.5: {'n': r, 'p': p},
                               lambda n, p, size: np.random.negative_binomial(n=n, p=p, size=size)),
 
         "normal": (stats.norm, 
                    lambda mu=0, sigma=1: (mu, sigma),  
                    lambda params: (params[0], params[1]),
-                   lambda mu, sigma: {'mu': mu, 'sigma': sigma},
+                   lambda mu=0, sigma=1: {'mu': mu, 'sigma': sigma},
                    lambda mu, sigma, size: np.random.normal(loc=mu, scale=sigma, size=size)),
 
         "logistic": (stats.logistic, 
                      lambda mu=0, sigma=1: (mu, sigma),  
                      lambda params: (params[0], params[1]),
-                     lambda mu, sigma: {'mu': mu, 'sigma': sigma},
+                     lambda mu=0, sigma=1: {'mu': mu, 'sigma': sigma},
                      lambda mu, sigma, size: np.random.logistic(loc=mu, scale=sigma, size=size)),
 
         "exponential": (stats.expon, 
                         lambda theta=1: (0, theta),   
                         lambda params: (params[1],),
-                        lambda theta: {'theta': theta},
+                        lambda theta=1: {'theta': theta},
                         lambda theta, size: np.random.exponential(scale=theta, size=size)),
 
         "uniform": (stats.uniform, 
                     lambda a=0, b=1: (a, b - a),   
                     lambda params: (params[0], params[0] + params[1]),
-                    lambda a, b: {'a': a, 'b': b},
+                    lambda a=0, b=1: {'a': a, 'b': b},
                     lambda a, b, size: np.random.uniform(low=a, high=b, size=size)),
 
         # Nonhomogeneous Poisson process simulation
         "nonhomogeneous_poisson": (NHPPDistribution,
                                    lambda lambda0=10, alpha=0.5, phase=0, T=1: (lambda0, alpha, phase, T),
-                                   lambda params: (params[0], params[1], params[2], params[3])),
-
+                                   lambda params: (params[0], params[1], params[2], params[3]),
+                                   lambda lambda0=10, alpha=0.5, phase=0, T=1: {'lambda0': lambda0, 'alpha': alpha, 'phase': phase, 'T': T},
+                                   lambda lambda0, alpha, phase, T, size, n_events: NHPPDistribution(lambda0, alpha, phase, T).rvs(size=size, n_events=n_events)),
     }
 
     def __init__(self, name, *args, **kwargs):
@@ -191,9 +192,9 @@ class ActuarialDistribution:
         fitted_params = self.scipy_dist.fit(data, *args, **kwargs)
         return self.from_scipy(fitted_params)
     
-    def np_rvs(self, size=None):
+    def np_rvs(self, size=None, **kwargs):
         """NumPy-based sampling"""
-        return self.np_sampler(**self.np_params, size=size)
+        return self.np_sampler(**self.np_params, size=size, **kwargs)
     
     def __getattr__(self, name):
         """Ensures that both frozen and unfrozen behavior work."""
@@ -251,7 +252,8 @@ if __name__ == "__main__":
     dist = np.random.poisson(0.5, 1000)
     dist = actuarial.poisson(0.5).rvs(size=1000)
     dist = actuarial.poisson(0.5,).np_rvs(size = 10000)
-    dist = actuarial.lognormal(0.5, 0.2).rvs(size = 1000)
+    dist = actuarial.lognormal
+    dist = actuarial.lognormal.rvs(0.5, 0.2,size = 1000)
     actuarial.lognormal(0.5, 0.2).np_rvs(size = 1000).mean()
     actuarial.lognormal.fit(dist)
     actuarial.poisson(10).rvs(1000)
@@ -262,8 +264,10 @@ if __name__ == "__main__":
     nhpp_dist = actuarial.nonhomogeneous_poisson(10, 0.25, 0, 1)
 
     # Generate a single simulation (one realization of event times)
-    simulated_events = nhpp_dist.rvs(n_events=100)
+    simulated_events = nhpp_dist.rvs(size=2,n_events=10)
+    simulated_events = nhpp_dist.np_rvs(size=2,n_events=10)
+
 
     # Convert each simulated event time to a month and day.
-    dates = [fraction_to_date_full(t) for t in simulated_events]
+    dates = [fraction_to_date_full(t) for t in simulated_events[1]]
 
