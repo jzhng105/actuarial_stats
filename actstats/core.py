@@ -106,10 +106,10 @@ class ActuarialDistribution:
                   lambda alpha, theta, size: np.random.gamma(shape=alpha, scale=theta, size=size)),
 
         "weibull": (stats.weibull_min, 
-                    lambda alpha=1, beta=1: (alpha, 0, beta),   
+                    lambda beta=1, theta=1: (beta, 0, theta),   
                     lambda params: (params[0], params[2]),
-                    lambda alpha=1, beta=1: {'alpha': alpha, 'beta': beta},
-                    lambda alpha, beta, size: beta * np.random.weibull(a=alpha, size=size)), # numpy weibull has only 1 parameter
+                    lambda beta=1, theta=1: {'beta': beta, 'theta': theta},
+                    lambda beta, theta, size: theta * np.random.weibull(a=beta, size=size)), # numpy weibull has only 1 parameter
 
         "pareto": (stats.pareto, 
                    lambda alpha=1, theta=1: (alpha, 0, theta),  
