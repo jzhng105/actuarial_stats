@@ -106,16 +106,16 @@ class ActuarialDistribution:
                   lambda alpha, theta, size: np.random.gamma(shape=alpha, scale=theta, size=size)),
 
         "weibull": (stats.weibull_min, 
-                    lambda alpha=1, beta=1: (alpha, 0, beta),   
+                    lambda alpha=1, theta=1: (alpha, 0, theta),   
                     lambda params: (params[0], params[2]),
-                    lambda alpha=1, beta=1: {'alpha': alpha, 'beta': beta},
-                    lambda alpha, beta, size: np.random.weibull(a=alpha, size=size)), # numpy weibull has only 1 parameter
+                    lambda alpha=1, theta=1: {'alpha': alpha, 'theta': theta},
+                    lambda alpha, theta, size: np.random.weibull(a=alpha, size=size) * theta), # numpy weibull needs to be adjusted by scale parameter
 
-        "pareto": (stats.pareto, 
-                   lambda alpha=1, theta=1: (alpha, 0, theta),  
-                   lambda params: (params[0], params[2]),
-                   lambda alpha=1, theta=1: {'alpha': alpha, 'theta': theta},
-                   lambda alpha, theta, size: np.random.pareto(a=alpha, size=size)), # numpy pareto has only 1 parameter
+        "pareto": (stats.lomax, 
+                   lambda alpha=1: (alpha, 0),  
+                   lambda params: (params[0]),
+                   lambda alpha=1: {'alpha': alpha},
+                   lambda alpha, size: np.random.pareto(a=alpha, size=size)), # lomax pareto has only 1 parameter
 
         "beta": (stats.beta, 
                  lambda alpha=1, beta=1: (alpha, beta),   
@@ -248,6 +248,7 @@ def fraction_to_date_full(t, year=2024):
     return event_date
 
 if __name__ == "__main__":
+    np.random.seed(42)  # Set seed for NumPy
     dist = stats.poisson(1, 0).rvs(size=10000)
     dist = np.random.poisson(0.5, 1000)
     dist = actuarial.poisson(0.5).rvs(size=1000)
@@ -258,6 +259,10 @@ if __name__ == "__main__":
     actuarial.lognormal.fit(dist)
     actuarial.poisson(10).rvs(1000)
     actuarial.poisson.ppf(0.9, 10)
+    actuarial.pareto(2).rvs(size=1000).mean()
+    actuarial.pareto(2).np_rvs(size=1000).mean()
+    actuarial.weibull(2, 3).rvs(size=1000).mean()
+    actuarial.weibull(2, 3).np_rvs(size=1000).mean()
     stats.poisson.ppf(0.5, 10)
 
     # Create an NHPP instance with lambda0=10, seasonal variation alpha=0.5, phase=0, over one year (T=1)
