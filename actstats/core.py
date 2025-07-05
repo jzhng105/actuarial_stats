@@ -179,9 +179,9 @@ class ActuarialDistribution:
         self.scipy_dist, self.to_scipy, self.from_scipy, self.to_numpy, self.np_sampler = self._distributions[name]
          # If no parameters are provided, initialize with defaults
         self.np_params = self.to_numpy(*args) if args else self.to_numpy()
-        converted_params = self.to_scipy(*args) if args else self.to_scipy()
+        self.scipy_params = self.to_scipy(*args) if args else self.to_scipy()
 
-        self.dist = self.scipy_dist(*converted_params, **kwargs)  # Store SciPy instance
+        self.dist = self.scipy_dist(*self.scipy_params, **kwargs)  # Store SciPy instance
 
     def fit(self, data, *args, **kwargs):
         """Fit distribution and return actuarial parameters."""
@@ -203,8 +203,18 @@ class ActuarialDistribution:
         if callable(attr):
             # If calling a method like .ppf() with additional parameters, handle dynamically
             def method(*args, **kwargs):
-                if args:  # If args are provided, call the unfrozen SciPy function
-                    return attr(*args, **kwargs)
+                if args:  # If args are provided, call the unfrozen SciPy function, and convert actuarial parameters to scipy format
+                    # Check if first arg is likely data (array-like or scalar)
+                    x = args[0]
+                    params = args[1:]
+                    # If x is a number or array, treat as data
+                    if isinstance(x, (np.ndarray, list, tuple)):
+                        scipy_params = self.to_scipy(*params)
+                        return attr(x, *scipy_params, **kwargs)
+                    else:
+                        # All args are parameters
+                        scipy_params = self.to_scipy(*args)
+                        return attr(*scipy_params, **kwargs)
                 else:  # Otherwise, call the frozen instance
                     return getattr(self.dist, name)(*args, **kwargs)
 
