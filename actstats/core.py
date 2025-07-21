@@ -81,15 +81,15 @@ class ActuarialDistribution:
     """Generic class to modify SciPy distributions to use actuarial conventions.
         Supported distributions:
         - lognormal(μ, σ) -> lognorm(s=σ, scale=exp(μ))
-        - gamma(α, θ) -> gamma(a=α, scale=θ)
+        - gamma(α, β) -> gamma(a=α, scale=β)
         - weibull(α, β) -> weibull_min(c=α, scale=β)
-        - pareto(α, θ) -> pareto(b=α, scale=θ)
+        - pareto(α, β) -> lomax(c=α, scale=β)        
         - beta(α, β) -> beta(a=α, b=β)
         - poisson(λ) -> poisson(mu=λ)
         - negative_binomial(r, p) -> nbinom(n=r, p=p)
         - normal(μ, σ) -> norm(loc=μ, scale=σ)
-        - logistic(μ, σ) -> logistic(loc=μ, scale=σ)
-        - exponential(θ) -> expon(scale=θ)
+        - logistic(μ, s) -> logistic(loc=μ, scale=s)
+        - exponential(β) -> expon(scale=β)
         - uniform(a, b) -> uniform(loc=a, scale=b-a)
     """
     _distributions = {
@@ -106,19 +106,19 @@ class ActuarialDistribution:
                   lambda alpha, theta, size: np.random.gamma(shape=alpha, scale=theta, size=size)),
 
         "weibull": (stats.weibull_min, 
-                    lambda beta=1, theta=1: (beta, 0, theta),   
+                    lambda delta=1, beta=1: (delta, 0, beta),  # follow bahnemann paper 
                     lambda params: (params[0], params[2]),
-                    lambda beta=1, theta=1: {'beta': beta, 'theta': theta},
-                    lambda beta, theta, size: theta * np.random.weibull(a=beta, size=size)), # numpy weibull has only 1 parameter
+                    lambda delta=1, beta=1: {'delta': delta, 'beta': beta},
+                    lambda delta, beta, size: beta * np.random.weibull(a=delta, size=size)), # numpy weibull has only 1 parameter
 
-        "pareto": (stats.pareto, 
-                   lambda alpha=1, theta=1: (alpha, 0, theta),  
+        "pareto": (stats.lomax, 
+                   lambda alpha=1, beta=1: (alpha, 0, beta),   # follow bahnemann paper 
                    lambda params: (params[0], params[2]),
-                   lambda alpha=1, theta=1: {'alpha': alpha, 'theta': theta},
-                   lambda alpha, theta, size: theta * (np.random.pareto(a=alpha, size=size) + 1)), # numpy pareto has only 1 parameter
+                   lambda alpha=1, beta=1: {'alpha': alpha, 'beta': beta},
+                   lambda alpha, beta, size: beta * (np.random.pareto(a=alpha, size=size))), # unshifted pareto should be lam * (np.random.pareto(a=alpha, size=size) + 1))
 
         "beta": (stats.beta, 
-                 lambda alpha=1, beta=1: (alpha, beta),   
+                 lambda alpha=1, beta=1: (alpha, beta),   # follow wikipedia convention 
                  lambda params: (params[0], params[1]),
                  lambda alpha=1, beta=1: {'alpha': alpha, 'beta': beta},
                  lambda alpha, beta, size: np.random.beta(a=alpha, b=beta, size=size)),
@@ -130,7 +130,7 @@ class ActuarialDistribution:
                     lambda mu, size: np.random.poisson(lam=mu, size = size)),
 
         "negative_binomial": (stats.nbinom, 
-                              lambda r=1, p=0.5: (r, p),   
+                              lambda r=1, p=0.5: (r, p),   # follow wikipedia convention 
                               lambda params: (params[0], params[1]),
                               lambda r=1, p=0.5: {'n': r, 'p': p},
                               lambda n, p, size: np.random.negative_binomial(n=n, p=p, size=size)),
@@ -141,17 +141,17 @@ class ActuarialDistribution:
                    lambda mu=0, sigma=1: {'mu': mu, 'sigma': sigma},
                    lambda mu, sigma, size: np.random.normal(loc=mu, scale=sigma, size=size)),
 
-        "logistic": (stats.logistic, 
-                     lambda mu=0, sigma=1: (mu, sigma),  
+        "logistic": (stats.logistic, # follow wikipedia convention
+                     lambda mu=0, s=1: (mu, s),  
                      lambda params: (params[0], params[1]),
-                     lambda mu=0, sigma=1: {'mu': mu, 'sigma': sigma},
-                     lambda mu, sigma, size: np.random.logistic(loc=mu, scale=sigma, size=size)),
+                     lambda mu=0, s=1: {'mu': mu, 's': s},
+                     lambda mu, s, size: np.random.logistic(loc=mu, scale=s, size=size)),
 
         "exponential": (stats.expon, 
-                        lambda theta=1: (0, theta),   
+                        lambda beta=1: (0, beta), # follow bahnemann paper 
                         lambda params: (params[1],),
-                        lambda theta=1: {'theta': theta},
-                        lambda theta, size: np.random.exponential(scale=theta, size=size)),
+                        lambda beta=1: {'beta': beta},
+                        lambda beta, size: np.random.exponential(scale=beta, size=size)),
 
         "uniform": (stats.uniform, 
                     lambda a=0, b=1: (a, b - a),   
@@ -180,7 +180,7 @@ class ActuarialDistribution:
          # If no parameters are provided, initialize with defaults
         self.np_params = self.to_numpy(*args) if args else self.to_numpy()
         self.scipy_params = self.to_scipy(*args) if args else self.to_scipy()
-
+        self.used_default_params = not args  # True if default, False if user-supplied
         self.dist = self.scipy_dist(*self.scipy_params, **kwargs)  # Store SciPy instance
 
     def fit(self, data, *args, **kwargs):
@@ -203,18 +203,19 @@ class ActuarialDistribution:
         if callable(attr):
             # If calling a method like .ppf() with additional parameters, handle dynamically
             def method(*args, **kwargs):
-                if args:  # If args are provided, call the unfrozen SciPy function, and convert actuarial parameters to scipy format
+                if self.used_default_params:  # Dist parameter was not provided when the class was initiated, call the unfrozen SciPy function, and convert actuarial parameters to scipy format
                     # Check if first arg is likely data (array-like or scalar)
-                    x = args[0]
-                    params = args[1:]
-                    # If x is a number or array, treat as data
-                    if isinstance(x, (np.ndarray, list, tuple)):
-                        scipy_params = self.to_scipy(*params)
-                        return attr(x, *scipy_params, **kwargs)
+                    n_params = self.to_scipy.__code__.co_argcount
+                    if name in ("rvs", "stats"):
+                        # first n_params are the distribution parameters
+                        scipy_params = self.to_scipy(*args[:n_params])
+                        func_params = args[n_params:]
+                        return attr(*scipy_params, *func_params, **kwargs)
                     else:
-                        # All args are parameters
-                        scipy_params = self.to_scipy(*args)
-                        return attr(*scipy_params, **kwargs)
+                        # last n_params are the distribution parameters
+                        scipy_params = self.to_scipy(*args[-n_params:])
+                        func_params = args[:-n_params]
+                        return attr(*func_params, *scipy_params, **kwargs)
                 else:  # Otherwise, call the frozen instance
                     return getattr(self.dist, name)(*args, **kwargs)
 
@@ -267,13 +268,49 @@ if __name__ == "__main__":
     dist = actuarial.lognormal.rvs(0.5, 0.2,size = 1000)
     actuarial.lognormal(0.5, 0.2).np_rvs(size = 1000).mean()
     actuarial.lognormal.fit(dist)
+
+    # Test rvs functions
+    stats.poisson(10).rvs(1000)
+    stats.poisson.rvs(10, 1000)
     actuarial.poisson(10).rvs(1000)
-    actuarial.poisson.ppf(0.9, 10)
-    actuarial.pareto(2).rvs(size=1000).mean()
-    actuarial.pareto(2).np_rvs(size=1000).mean()
-    actuarial.weibull(2, 3).rvs(size=1000).mean()
-    actuarial.weibull(2, 3).np_rvs(size=1000).mean()
+    actuarial.poisson.rvs(10,1000)
+
+    # Test pmf functions
     stats.poisson.ppf(0.5, 10)
+    stats.poisson(10).ppf(0.5)
+    actuarial.poisson.ppf(0.5, 10)
+    actuarial.poisson(10).ppf(0.5)
+
+    # Test logpmf functions
+    stats.poisson.logpmf(5, 10)
+    stats.poisson(10).logpmf(5)
+    actuarial.poisson.logpmf(5, 10)
+    actuarial.poisson(10).logpmf(5)
+
+    # Test rvs functions severity
+    stats.lognorm(2,1).rvs(1000)
+    stats.lognorm.rvs(2, 1, 1000)
+    actuarial.lognormal(2,1).rvs(1000)
+    actuarial.lognormal.rvs(2, 1, 1000)
+
+    # Test pdf functions severity
+    stats.lognorm.ppf(0.5, 1, 0, np.exp(2))
+    stats.lognorm(1,0, np.exp(2)).ppf(0.5)
+    actuarial.lognormal.ppf(0.5, 2, 1)
+    actuarial.lognormal(2, 1).ppf(0.5)
+
+
+    # Test pdf functions severity
+    stats.lognorm.pdf(5, 1, 0, np.exp(2))
+    stats.lognorm(1, 0, np.exp(2)).pdf(5)
+    actuarial.lognormal.pdf(5, 2, 1)
+    actuarial.lognormal(2, 1).pdf(5)
+
+    # Test logpdf functions severity
+    stats.lognorm.logpdf(5, 1, 0, np.exp(2))
+    stats.lognorm(1, 0, np.exp(2)).logpdf(5)
+    actuarial.lognormal.logpdf(5, 2, 1)
+    actuarial.lognormal(2, 1).logpdf(5)
 
     # Create an NHPP instance with lambda0=10, seasonal variation alpha=0.5, phase=0, over one year (T=1)
     nhpp_dist = actuarial.nonhomogeneous_poisson(10, 0.25, 0, 1)
