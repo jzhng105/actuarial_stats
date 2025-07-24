@@ -4,12 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "actstats"
-version = "0.1.1"
+version = "0.1.1.1"
 description = "Of the Actuary, By the Actuary, For the Actuary: Unifying Statistical Libraries with Actuarial Conventions"
 authors = [
-    {name = "Juntao Zhang"},
-    {name = "Tingting Shi"},
-    {email = "jzhng106@gmail.com"}]
+    {name = "Juntao Zhang", email = "jzhng106@gmail.com"},
+    {name = "Tingting Shi"}]
 license = {text = "Apache License 2.0"}
 readme = "README.md"
 requires-python = ">=3.8"
