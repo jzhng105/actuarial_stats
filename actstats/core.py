@@ -196,6 +196,12 @@ class ActuarialDistribution:
         """NumPy-based sampling"""
         return self.np_sampler(**self.np_params, size=size, **kwargs)
     
+    def ks_test(self, data):
+        try:
+            cdf = self.dist.cdf
+            return stats.kstest(data, cdf).statistic
+        except Exception as e:
+            raise RuntimeError(f"Error computing KS statistic: {e}")
     def __getattr__(self, name):
         """Ensures that both frozen and unfrozen behavior work."""
         attr = getattr(self.scipy_dist, name, None)
@@ -251,7 +257,7 @@ if __name__ == "__main__":
     dist = actuarial.lognormal.rvs(0.5, 0.2,size = 1000)
     actuarial.lognormal(0.5, 0.2).np_rvs(size = 1000).mean()
     actuarial.lognormal.fit(dist)
-
+    actuarial.lognormal(0.5, 0.2).ks_test(actuarial.lognormal.rvs(0.5, 0.2,size = 1000))
     # Test rvs functions
     stats.poisson(10).rvs(1000)
     stats.poisson.rvs(10, 1000)
