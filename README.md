@@ -24,7 +24,53 @@ pip install actstats
 | `logistic`               | (μ, s)               | `logistic(loc=μ, scale=s)`   |μ                           |(π² / 3) * s²                          |
 | `exponential`            | (β)                  | `expon(scale=β)`             |β                           |β²                                     |
 | `uniform`                | (a, b)               | `uniform(loc=a, scale=b−a)`  |(a + b) / 2                 |(b - a)² / 12                          |
+| `gpd`                    | (ξ, β)               | `genpareto(c=ξ, scale=β)`    |β / (1 − ξ),  ξ < 1         |β² / [(1 − ξ)² (1 − 2ξ)],  ξ < 1/2     |
 | `nonhomogeneous_poisson` | (λ₀, α, ϕ, T)        | custom `NHPPDistribution`    | λ₀·T + (λ₀·α / 2π) · [ cos(ϕ) - cos(2πT + ϕ) ]                     |
+
+## 📈 Robust distribution fitting
+
+SciPy's bare `dist.fit` relies on a single unguided MLE optimization from
+hand-picked starting values, and it fails silently or returns poor fits
+surprisingly often for heavy-tailed severities (Pareto, GPD), bounded
+distributions (beta near the boundary) and shifted lognormals. `actstats`
+ships a robust fitting engine that addresses these shortcomings.
+
+`fit()` accepts a `method` switch and an optional `full_output` flag:
+
+```python
+from actstats import actuarial
+
+losses = actuarial.pareto(2.5, 1000).rvs(size=3000)
+
+# Method switch: maximum likelihood, method of moments, or L-moments
+actuarial.pareto.fit(losses, method="mle")        # -> (alpha, beta)
+actuarial.pareto.fit(losses, method="mom")
+actuarial.pareto.fit(losses, method="lmoments")
+
+# Full diagnostics: standard errors, CIs, goodness-of-fit
+res = actuarial.pareto.fit(losses, method="mle", full_output=True)
+print(res.summary())
+
+res.params                                  # {'alpha': ..., 'beta': ...}
+res.se                                       # parameter standard errors
+res.aic, res.bic, res.loglik, res.ks_stat     # goodness-of-fit metrics
+res.confidence_intervals(method="wald")       # Wald intervals
+res.confidence_intervals(method="profile")    # profile-likelihood intervals
+res.profile_likelihood("alpha")               # profile curve + CI
+```
+
+What the engine adds over `scipy.stats`:
+
+* **Method switch** — `mle`, `mom` (method of moments) and `lmoments`
+  (L-moments, robust to heavy tails and outliers).
+* **Multi-start MLE** — the optimizer is seeded from MoM, L-moment and SciPy
+  estimates plus perturbations, so it does not get trapped or fail silently.
+* **Standard errors** — from the observed Fisher information, reported
+  directly in actuarial parameter space.
+* **Profile-likelihood confidence intervals** — reliable for skewed or
+  near-boundary parameters where Wald intervals are not.
+* **Goodness-of-fit** — log-likelihood, AIC, AICc, BIC, Kolmogorov-Smirnov
+  and Anderson-Darling statistics for model comparison.
 
 ## 📝 Sample code
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "actstats"
-version = "0.1.1.2"
+version = "0.1.2"
 description = "Of the Actuary, By the Actuary, For the Actuary: Unifying Statistical Libraries with Actuarial Conventions"
 authors = [
     { name = "Juntao Zhang"},

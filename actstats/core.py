@@ -91,6 +91,7 @@ class ActuarialDistribution:
         - logistic(μ, s) -> logistic(loc=μ, scale=s)
         - exponential(β) -> expon(scale=β)
         - uniform(a, b) -> uniform(loc=a, scale=b-a)
+        - gpd(ξ, β) -> genpareto(c=ξ, scale=β)
     """
     _distributions = {
         "lognormal": (stats.lognorm, 
@@ -153,11 +154,18 @@ class ActuarialDistribution:
                         lambda beta=1: {'beta': beta},
                         lambda beta, size: np.random.exponential(scale=beta, size=size)),
 
-        "uniform": (stats.uniform, 
-                    lambda a=0, b=1: (a, b - a),   
+        "uniform": (stats.uniform,
+                    lambda a=0, b=1: (a, b - a),
                     lambda params: (params[0], params[0] + params[1]),
                     lambda a=0, b=1: {'a': a, 'b': b},
                     lambda a, b, size: np.random.uniform(low=a, high=b, size=size)),
+
+        # Generalized Pareto distribution (peaks-over-threshold severity tail)
+        "gpd": (stats.genpareto,
+                lambda xi=0, beta=1: (xi, 0, beta),
+                lambda params: (params[0], params[2]),
+                lambda xi=0, beta=1: {'xi': xi, 'beta': beta},
+                lambda xi, beta, size: stats.genpareto.rvs(xi, loc=0, scale=beta, size=size)),
 
         # Nonhomogeneous Poisson process simulation
         "nonhomogeneous_poisson": (NHPPDistribution,
@@ -183,14 +191,40 @@ class ActuarialDistribution:
         self.used_default_params = not args  # True if default, False if user-supplied
         self.dist = self.scipy_dist(*self.scipy_params, **kwargs)  # Store SciPy instance
 
-    def fit(self, data, *args, **kwargs):
-        """Fit distribution and return actuarial parameters."""
-        if self.name not in ["uniform", "normal", "logistic", "poisson", "negative_binomial"]:
-            # Force loc=0 for consistency, poisson and negative binomial fit functions 
-            # are defined in scipy_decorators.py which does not require this
-            kwargs["floc"] = 0
-        fitted_params = self.scipy_dist.fit(data, *args, **kwargs)
-        return self.from_scipy(fitted_params)
+    def fit(self, data, method="mle", full_output=False, alpha=0.05):
+        """Fit the distribution to data and return actuarial parameters.
+
+        Unlike SciPy's bare ``dist.fit``, this uses a robust engine that:
+          - supports ``method='mle'``, ``'mom'`` or ``'lmoments'``;
+          - runs multi-start optimization for MLE so it does not fail
+            silently on heavy-tailed or bounded distributions;
+          - reports parameter standard errors and goodness-of-fit metrics.
+
+        Parameters
+        ----------
+        data : array-like
+            Observed sample.
+        method : {'mle', 'mom', 'lmoments'}, default 'mle'
+            Estimation method.
+        full_output : bool, default False
+            If True, return a ``FitResult`` object with standard errors,
+            confidence intervals, profile likelihood and diagnostics. If
+            False, return only the tuple of actuarial parameters.
+        alpha : float, default 0.05
+            Significance level for the confidence intervals in the summary.
+
+        Returns
+        -------
+        tuple or FitResult
+        """
+        if self.name == "nonhomogeneous_poisson":
+            raise NotImplementedError(
+                "fit() is not supported for the nonhomogeneous Poisson "
+                "process; estimate its rate parameters directly.")
+        from actstats.fitting import robust_fit
+        result = robust_fit(self.name, self.scipy_dist, self.to_scipy,
+                            self.from_scipy, data, method=method, alpha=alpha)
+        return result if full_output else result.params_tuple
     
     def np_rvs(self, size=None, **kwargs):
         """NumPy-based sampling"""
