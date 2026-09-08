@@ -1,168 +1,183 @@
+"""Worked examples for every distribution actstats supports.
+
+Run it with ``python examples/examples.py``.  Nothing here imports NumPy or
+SciPy: the theoretical moments are written out from the actuarial
+parameterisation so the output doubles as a check on the library.
+"""
+
+import math
+
+import actstats
 from actstats import actuarial
-import numpy as np
-######################################
-##### All distribution testing########
-######################################
-# Test the lognormal distribution
-lognormal_dist = actuarial.lognormal
-mu = 0.5
-sigma = 0.2
-lognormal_dist = actuarial.lognormal(mu, sigma)
-lognormal_dist_sample = lognormal_dist.rvs(size=10000)
-lognormal_dist_sample = lognormal_dist.np_rvs(size=10000)
-sample_mean = lognormal_dist_sample.mean()
-sample_var = lognormal_dist_sample.var()
-theoretical_mean = np.exp(mu + sigma**2 / 2)
-theoretical_var = (np.exp(sigma**2)-1)*np.exp(2*mu + sigma**2)
-print(f"Theoretical mean: {theoretical_mean}, Sample mean: {sample_mean}")
-print(f"Theoretical variance: {theoretical_var}, Sample variance: {sample_var}")
-actuarial.lognormal.fit(lognormal_dist_sample)
 
-# Test the gamma distribution
-gamma_dist = actuarial.gamma    
-alpha = 1
-beta = 2
-gamma_dist = actuarial.gamma(alpha, beta)
-gamma_dist_sample = gamma_dist.rvs(size=10000)
-gamma_dist_sample = gamma_dist.np_rvs(size=10000)
-sample_mean = gamma_dist_sample.mean()
-sample_var = gamma_dist_sample.var()
-theoretical_mean = alpha * beta
-theoretical_var = alpha * beta**2
-print(f"Theoretical mean: {theoretical_mean}, Sample mean: {sample_mean}")
-print(f"Theoretical variance: {theoretical_var}, Sample variance: {sample_var}")
-actuarial.gamma.fit(gamma_dist_sample)
+SIZE = 100_000
+actstats.seed(20240908)
 
-# Test the Weibull distribution
-weibull_dist = actuarial.weibull
-delta = 1.5
-beta = 1
-weibull_dist = actuarial.weibull(delta, beta)
-weibull_dist_sample = weibull_dist.rvs(size=10000)
-weibull_dist_sample = weibull_dist.np_rvs(size=10000)
-sample_mean = weibull_dist_sample.mean()
-sample_var = weibull_dist_sample.var()
-theoretical_mean = beta * np.math.gamma(1 + 1/delta)
-theoretical_var = beta**2 * (np.math.gamma(1 + 2/delta) - np.math.gamma(1 + 1/delta)**2)
-print(f"Theoretical mean: {theoretical_mean}, Sample mean: {sample_mean}")
-print(f"Theoretical variance: {theoretical_var}, Sample variance: {sample_var}")
-actuarial.weibull.fit(weibull_dist_sample)
 
-# Test the Pareto distribution
-pareto_dist = actuarial.pareto
-alpha = 5
-beta = 1
-pareto_dist = actuarial.pareto(alpha, beta)
-pareto_dist_sample = pareto_dist.rvs(size=10000)
-pareto_dist_sample = pareto_dist.np_rvs(size=10000)
-sample_mean = pareto_dist_sample.mean()
-sample_var = pareto_dist_sample.var()
-theoretical_mean = beta / (alpha - 1) if alpha > 1 else np.inf
-theoretical_var = (beta**2 * alpha) / ((alpha - 1)**2 * (alpha - 2)) if alpha > 2 else np.inf
-print(f"Theoretical mean: {theoretical_mean}, Sample mean: {sample_mean}")
-print(f"Theoretical variance: {theoretical_var}, Sample variance: {sample_var}")
-actuarial.pareto.fit(pareto_dist_sample)
+def gamma_function(x):
+    """``Gamma(x)`` from the standard library."""
+    return math.gamma(x)
 
-# Test the beta distribution
-beta_dist = actuarial.beta
-alpha = 1
-beta = 2
-beta_dist = actuarial.beta(alpha, beta)
-beta_dist_sample = beta_dist.rvs(size=10000)
-beta_dist_sample = beta_dist.np_rvs(size=10000)
-sample_mean = beta_dist.rvs(size=10000).mean()
-sample_var = beta_dist_sample.var()
-theoretical_mean = alpha / (alpha + beta)
-theoretical_var = (alpha * beta) / ((alpha + beta)**2 * (alpha + beta + 1))
-print(f"Theoretical mean: {theoretical_mean}, Sample mean: {sample_mean}")
-print(f"Theoretical variance: {theoretical_var}, Sample variance: {sample_var}")
-actuarial.beta.fit(beta_dist_sample)
 
-# Test the Poisson distribution
-poisson_dist = actuarial.poisson
-lam = 5
-poisson_dist = actuarial.poisson(lam,)
-poisson_dist_sample = poisson_dist.rvs(size=10000)
-poisson_dist_sample = poisson_dist.np_rvs(size=10000)
-sample_mean = poisson_dist_sample.mean()
-sample_var = poisson_dist_sample.var()
-theoretical_mean = lam
-theoretical_var = lam
-print(f"Theoretical mean: {theoretical_mean}, Sample mean: {sample_mean}")
-print(f"Theoretical variance: {theoretical_var}, Sample variance: {sample_var}")
-actuarial.poisson.fit(poisson_dist_sample)
+# name, parameters, theoretical mean, theoretical variance
+CASES = [
+    (
+        "lognormal", (0.5, 0.2),
+        lambda mu, sigma: math.exp(mu + sigma ** 2 / 2),
+        lambda mu, sigma: (math.exp(sigma ** 2) - 1) * math.exp(2 * mu + sigma ** 2),
+    ),
+    (
+        "gamma", (1.0, 2.0),
+        lambda alpha, theta: alpha * theta,
+        lambda alpha, theta: alpha * theta ** 2,
+    ),
+    (
+        "weibull", (1.5, 1.0),
+        lambda delta, beta: beta * gamma_function(1 + 1 / delta),
+        lambda delta, beta: beta ** 2
+        * (gamma_function(1 + 2 / delta) - gamma_function(1 + 1 / delta) ** 2),
+    ),
+    (
+        "pareto", (5.0, 1.0),
+        lambda alpha, beta: beta / (alpha - 1) if alpha > 1 else math.inf,
+        lambda alpha, beta: (beta ** 2 * alpha) / ((alpha - 1) ** 2 * (alpha - 2))
+        if alpha > 2
+        else math.inf,
+    ),
+    (
+        "beta", (1.0, 2.0),
+        lambda alpha, beta: alpha / (alpha + beta),
+        lambda alpha, beta: (alpha * beta)
+        / ((alpha + beta) ** 2 * (alpha + beta + 1)),
+    ),
+    ("poisson", (5.0,), lambda lam: lam, lambda lam: lam),
+    (
+        "negative_binomial", (5.0, 0.5),
+        lambda r, p: r * (1 - p) / p,
+        lambda r, p: r * (1 - p) / p ** 2,
+    ),
+    ("normal", (0.0, 1.0), lambda mu, sigma: mu, lambda mu, sigma: sigma ** 2),
+    (
+        "logistic", (0.0, 1.0),
+        lambda mu, s: mu,
+        lambda mu, s: (math.pi ** 2 / 3) * s ** 2,
+    ),
+    ("exponential", (2.0,), lambda beta: beta, lambda beta: beta ** 2),
+    (
+        "uniform", (0.0, 1.0),
+        lambda a, b: (a + b) / 2,
+        lambda a, b: (b - a) ** 2 / 12,
+    ),
+]
 
-# Test the negative_binomial distribution
-negative_binomial_dist = actuarial.negative_binomial
-r = 5
-p = 0.5
-negative_binomial_dist = actuarial.negative_binomial(r, p)
-negative_binomial_dist_sample = negative_binomial_dist.rvs(size=10000)
-negative_binomial_dist_sample = negative_binomial_dist.np_rvs(size=10000)
-sample_mean = negative_binomial_dist_sample.mean()
-sample_var = negative_binomial_dist_sample.var()
-theoretical_mean = r * (1 - p) / p
-theoretical_var = r * (1 - p) / p**2
-print(f"Theoretical mean: {theoretical_mean}, Sample mean: {sample_mean}")
-print(f"Theoretical variance: {theoretical_var}, Sample variance: {sample_var}")
-actuarial.negative_binomial.fit(negative_binomial_dist_sample)
 
-# Test the normal distribution
-normal_dist = actuarial.normal
-mu = 0
-sigma = 1
-normal_dist = actuarial.normal(mu, sigma)
-normal_dist_sample = normal_dist.rvs(size=10000)
-normal_dist_sample = normal_dist.np_rvs(size=10000)
-sample_mean = normal_dist_sample.mean()
-sample_var = normal_dist_sample.var()
-theoretical_mean = mu
-theoretical_var = sigma**2
-print(f"Theoretical mean: {theoretical_mean}, Sample mean: {sample_mean}")
-print(f"Theoretical variance: {theoretical_var}, Sample variance: {sample_var}")
-actuarial.normal.fit(normal_dist_sample)
+def distribution_tour():
+    """Simulate each distribution, then fit it back to its own sample."""
+    print(f"Simulating {SIZE:,} variates per distribution\n")
+    header = f"{'distribution':22s}{'mean (theory/sample)':>30s}{'variance (theory/sample)':>34s}"
+    print(header)
+    print("-" * len(header))
+    for name, params, theoretical_mean, theoretical_var in CASES:
+        dist = getattr(actuarial, name)(*params)
+        sample = dist.rvs(size=SIZE)
 
-# Test the logistic distribution
-logistic_dist = actuarial.logistic
-mu = 0
-s = 1
-logistic_dist = actuarial.logistic(mu, s)
-logistic_dist_sample = logistic_dist.rvs(size=10000)
-logistic_dist_sample = logistic_dist.np_rvs(size=10000)
-sample_mean = logistic_dist_sample.mean()
-sample_var = logistic_dist_sample.var()
-theoretical_mean = mu
-theoretical_var = (sigma**2 * np.pi**2) / 3
-print(f"Theoretical mean: {theoretical_mean}, Sample mean: {sample_mean}")
-print(f"Theoretical variance: {theoretical_var}, Sample variance: {sample_var}")
-actuarial.logistic.fit(logistic_dist_sample)
+        mean, variance = theoretical_mean(*params), theoretical_var(*params)
+        # The library's own closed forms must agree with the formulas above.
+        assert math.isclose(dist.mean(), mean, rel_tol=1e-9)
+        assert math.isclose(dist.var(), variance, rel_tol=1e-9)
 
-# Test the exponential distribution
-exponential_dist = actuarial.exponential
-beta = 2
-exponential_dist = actuarial.exponential(beta)
-exponential_dist_sample = exponential_dist.rvs(size=10000)  
-exponential_dist_sample = exponential_dist.np_rvs(size=10000)
-sample_mean = exponential_dist_sample.mean()
-sample_var = exponential_dist_sample.var()
-theoretical_mean = beta
-theoretical_var = beta**2
-print(f"Theoretical mean: {theoretical_mean}, Sample mean: {sample_mean}")
-print(f"Theoretical variance: {theoretical_var}, Sample variance: {sample_var}")
-actuarial.exponential.fit(exponential_dist_sample)
+        label = f"{name}{params}"
+        print(
+            f"{label:22s}{mean:14.4f} /{sample.mean():13.4f}"
+            f"{variance:16.4f} /{sample.var():15.4f}"
+        )
 
-# Test the uniform distribution
-uniform_dist = actuarial.uniform
-a = 0
-b = 1
-uniform_dist = actuarial.uniform(a, b)
-uniform_dist_sample = uniform_dist.rvs(size=10000)
-uniform_dist_sample = uniform_dist.np_rvs(size=10000)
-sample_mean = uniform_dist_sample.mean()
-sample_var = uniform_dist_sample.var()
-theoretical_mean = (a + b) / 2
-theoretical_var = ((b - a) ** 2) / 12
-print(f"Theoretical mean: {theoretical_mean}, Sample mean: {sample_mean}")
-print(f"Theoretical variance: {theoretical_var}, Sample variance: {sample_var}")
-actuarial.uniform.fit(uniform_dist_sample)
+    print("\nFitting each distribution back to its own sample")
+    print(f"{'distribution':22s}{'true parameters':>28s}{'fitted':>30s}")
+    print("-" * 80)
+    for name, params, _, _ in CASES:
+        sample = getattr(actuarial, name)(*params).rvs(size=SIZE)
+        fitted = getattr(actuarial, name).fit(sample)
+        true_text = ", ".join(f"{v:g}" for v in params)
+        fitted_text = ", ".join(f"{v:.4f}" for v in fitted)
+        print(f"{name:22s}{'(' + true_text + ')':>28s}{'(' + fitted_text + ')':>30s}")
 
+
+def quantiles_and_goodness_of_fit():
+    """Tail quantiles and a Kolmogorov-Smirnov check, the way pricing work uses them."""
+    print("\nSeverity quantiles for lognormal(mu=9, sigma=1.3)")
+    severity = actuarial.lognormal(9.0, 1.3)
+    for level in (0.5, 0.9, 0.99, 0.995, 0.999):
+        print(f"  {level:>6.3%} VaR  {severity.ppf(level):15,.0f}")
+    # isf() is the accurate way to ask for a far tail: ppf(1 - 1e-9) has already
+    # lost most of its significant digits by the time it is called.
+    print(f"  1-in-1e9 loss {severity.isf(1e-9):15,.0f}")
+
+    losses = severity.rvs(size=20_000)
+    mu, sigma = actuarial.lognormal.fit(losses)
+    fitted = actuarial.lognormal(mu, sigma)
+    statistic, p_value = fitted.kstest(losses)
+    print(f"\n  fitted mu={mu:.4f} sigma={sigma:.4f}")
+    print(f"  KS statistic {statistic:.5f}, p-value {p_value:.3f}")
+
+
+def collective_risk_model():
+    """Aggregate losses from a frequency-severity model, one trial at a time."""
+    print("\nCollective risk model: Poisson(3.7) claims, lognormal(9, 1.3) severity")
+    frequency = actuarial.poisson(3.7)
+    severity = actuarial.lognormal(9.0, 1.3)
+    trials = 50_000
+
+    totals = actstats.Sample(
+        sum(severity.rvs(size=n)) if (n := frequency.rvs()) else 0.0
+        for _ in range(trials)
+    )
+    print(f"  mean aggregate loss   {totals.mean():15,.0f}")
+    print(f"  standard deviation    {totals.std():15,.0f}")
+    for level in (0.9, 0.99, 0.999):
+        print(f"  {level:.1%} aggregate VaR   {totals.quantile(level):15,.0f}")
+    # TVaR: the average of the worst 1% of trials.
+    ordered = sorted(totals)
+    tail = ordered[int(0.99 * trials):]
+    print(f"  99% TVaR              {sum(tail) / len(tail):15,.0f}")
+
+
+def seasonal_claim_arrivals():
+    """A nonhomogeneous Poisson process with a seasonal claim rate."""
+    print("\nSeasonal claim arrivals: lambda(t) = 10 * (1 + 0.25 sin(2 pi t))")
+    nhpp = actuarial.nonhomogeneous_poisson(10.0, 0.25, 0.0, 1.0)
+    print(f"  expected events over the year: {nhpp.mean():.2f}")
+
+    events = nhpp.rvs()  # thinning, until the horizon
+    print(f"  one simulated year produced {len(events)} events")
+    for time_fraction in events[:5]:
+        print(f"    {actstats.fraction_to_date_full(time_fraction)}")
+
+    # Or condition on a known number of events and place them by intensity.
+    conditioned = nhpp.rvs(size=2, n_events=10)
+    print(f"  two conditioned paths of 10 events: {len(conditioned)} paths")
+    first_half = sum(1 for t in nhpp.rvs(n_events=10_000) if t < 0.5)
+    print(f"  share of events in the first half-year: {first_half / 10_000:.3f}")
+
+
+def reproducibility():
+    """Seeding makes a run repeatable, and batching never changes it."""
+    print("\nReproducibility")
+    dist = actuarial.gamma(2.0, 3.0)
+    actstats.seed(7)
+    one_at_a_time = [dist.rvs() for _ in range(5)]
+    actstats.seed(7)
+    in_one_batch = list(dist.rvs(size=5))
+    print(f"  sequential == batched: {one_at_a_time == in_one_batch}")
+
+    # An independent stream, useful when a model needs reproducible sub-models.
+    own_stream = actstats.RandomState(42)
+    print(f"  private stream draw:  {dist.rvs(random_state=own_stream):.4f}")
+
+
+if __name__ == "__main__":
+    distribution_tour()
+    quantiles_and_goodness_of_fit()
+    collective_risk_model()
+    seasonal_claim_arrivals()
+    reproducibility()

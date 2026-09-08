@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "actstats"
-version = "0.1.1.2"
-description = "Of the Actuary, By the Actuary, For the Actuary: Unifying Statistical Libraries with Actuarial Conventions"
+version = "0.2.0"
+description = "Of the Actuary, By the Actuary, For the Actuary: dependency-free statistical distributions in actuarial conventions"
 authors = [
     { name = "Juntao Zhang"},
     { name = "Tingting Shi"},
@@ -14,10 +14,26 @@ authors = [
 license = {text = "Apache License 2.0"}
 readme = "README.md"
 requires-python = ">=3.8"
-dependencies = [
-    "numpy>=1.21",
-    "scipy>=1.7"
+keywords = ["actuarial", "statistics", "distributions", "simulation", "insurance"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Office/Business :: Financial",
+    "Topic :: Scientific/Engineering :: Mathematics",
 ]
+# No runtime dependencies: everything is built on the standard library.
+dependencies = []
+
+[project.optional-dependencies]
+# Only needed to regenerate tests/reference_values.py and to run the
+# comparison columns of the benchmark; the library and its tests never use them.
+dev = ["scipy>=1.7", "numpy>=1.21", "pytest>=7.0"]
 
 [project.urls]
 Homepage = "https://github.com/jzhng105/actuarial_stats"
+
+[tool.setuptools.packages.find]
+include = ["actstats*"]
